@@ -42,3 +42,14 @@ export const me = query({
       .unique();
   },
 });
+
+// Returns all users (clerkId + name) so the timeline can resolve logged-by names.
+export const listAll = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const users = await ctx.db.query("users").collect();
+    return users.map((u) => ({ clerkId: u.clerkId, name: u.name }));
+  },
+});

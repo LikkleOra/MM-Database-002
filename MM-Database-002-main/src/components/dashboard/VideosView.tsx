@@ -3,13 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useMemo } from 'react';
-import { useQuery } from 'convex/react';
+import { useState, useMemo, FormEvent } from 'react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
-import { Play, Eye, DollarSign, MoreVertical, ExternalLink, Search, ChevronDown, Video } from 'lucide-react';
-import { motion } from 'motion/react';
+import type { Id } from '../../../convex/_generated/dataModel';
+import { Creator } from '../../types';
+import { Play, Eye, DollarSign, MoreVertical, ExternalLink, Search, ChevronDown, Video, Plus, X, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 const PLATFORMS = ['All', 'TikTok', 'Instagram', 'YouTube', 'Facebook'] as const;
+type VideoPlatform = 'TikTok' | 'Instagram' | 'YouTube' | 'Facebook';
 
 const PLATFORM_COLORS: Record<string, string> = {
   TikTok: 'bg-pink-500/10 border-pink-500/20 text-pink-400',
@@ -18,14 +21,28 @@ const PLATFORM_COLORS: Record<string, string> = {
   Facebook: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
 };
 
-export function VideosView() {
+interface VideosViewProps {
+  userRole: 'admin' | 'manager' | 'viewer';
+  creators: Creator[];
+}
+
+export function VideosView({ userRole, creators }: VideosViewProps) {
   const videosData = useQuery(api.videos.list);
+  const createVideo = useMutation(api.videos.create);
+
   const isLoading = videosData === undefined;
   const videos = videosData ?? [];
 
   const [search, setSearch] = useState('');
   const [platform, setPlatform] = useState<string>('All');
   const [showPlatformMenu, setShowPlatformMenu] = useState(false);
+
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [isLogging, setIsLogging] = useState(false);
+  const [logError, setLogError] = useState<string | null>(null);
+  const [logFieldErrors, setLogFieldErrors] = useState<{ title?: string; views?: string; creatorId?: string }>({});
+
+  const canWrite = userRole === 'admin' || userRole === 'manager';
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -35,6 +52,48 @@ export function VideosView() {
       return matchesSearch && matchesPlatform;
     });
   }, [videos, search, platform]);
+
+  const handleLogVideo = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (isLogging) return;
+
+    const formData = new FormData(e.currentTarget);
+    const creatorId = (formData.get('creatorId') as string) ?? '';
+    const videoPlatform = (formData.get('platform') as VideoPlatform) ?? 'TikTok';
+    const title = (formData.get('title') as string) ?? '';
+    const viewsRaw = parseInt((formData.get('views') as string) ?? '0', 10);
+    const revenueRaw = (formData.get('revenue') as string).trim();
+    const thumbnailUrl = (formData.get('thumbnailUrl') as string).trim();
+
+    const errors: typeof logFieldErrors = {};
+    if (!creatorId) errors.creatorId = 'Please select a creator.';
+    if (title.trim().length < 2) errors.title = 'Title must be at least 2 characters.';
+    if (isNaN(viewsRaw) || viewsRaw < 0) errors.views = 'Views must be a valid number.';
+
+    if (Object.keys(errors).length > 0) {
+      setLogFieldErrors(errors);
+      return;
+    }
+    setLogFieldErrors({});
+    setLogError(null);
+    setIsLogging(true);
+
+    try {
+      await createVideo({
+        creatorId: creatorId as Id<'creators'>,
+        platform: videoPlatform,
+        title: title.trim(),
+        views: viewsRaw,
+        revenue: revenueRaw ? parseFloat(revenueRaw) : undefined,
+        thumbnailUrl: thumbnailUrl || undefined,
+      });
+      setShowLogModal(false);
+    } catch (err) {
+      setLogError(err instanceof Error ? err.message : 'Failed to log video. Please try again.');
+    } finally {
+      setIsLogging(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -51,6 +110,15 @@ export function VideosView() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {canWrite && !isLoading && (
+            <button
+              onClick={() => { setLogError(null); setLogFieldErrors({}); setShowLogModal(true); }}
+              className="flex items-center gap-2 h-9 px-4 bg-emerald-500 text-black text-[10px] font-bold rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] uppercase tracking-widest"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Log Video
+            </button>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
             <input
@@ -115,7 +183,7 @@ export function VideosView() {
           </div>
           <h3 className="text-lg font-bold text-zinc-400 tracking-tight">No videos tracked yet</h3>
           <p className="text-zinc-600 text-sm mt-2 max-w-sm font-medium">
-            Videos will appear here once creators start submitting content or platform integrations are connected.
+            {canWrite ? 'Use "Log Video" to add the first entry.' : 'Videos will appear here once content is submitted.'}
           </p>
         </div>
       )}
@@ -195,6 +263,133 @@ export function VideosView() {
           ))}
         </div>
       )}
+
+      {/* Log Video Modal */}
+      <AnimatePresence>
+        {showLogModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowLogModal(false)}
+              className="fixed inset-0 bg-zinc-950/80 backdrop-blur-xl"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden"
+            >
+              <form onSubmit={handleLogVideo} noValidate>
+                <div className="p-8 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-zinc-100 tracking-tight flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                      <Video className="w-5 h-5 text-black" />
+                    </div>
+                    Log Video Entry
+                  </h3>
+                  <button type="button" onClick={() => setShowLogModal(false)} className="p-2 hover:bg-zinc-800 rounded-xl transition-colors">
+                    <X className="w-6 h-6 text-zinc-500" />
+                  </button>
+                </div>
+
+                <div className="p-8 space-y-5">
+                  <div>
+                    <label htmlFor="log-creator" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Creator</label>
+                    <select
+                      id="log-creator" name="creatorId"
+                      onChange={() => logFieldErrors.creatorId && setLogFieldErrors((e) => ({ ...e, creatorId: undefined }))}
+                      defaultValue=""
+                      className={`w-full h-12 px-4 bg-zinc-900 border rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer ${
+                        logFieldErrors.creatorId ? 'border-red-500/50 focus:ring-red-500/20' : 'border-zinc-800 focus:ring-emerald-500/20'
+                      }`}
+                    >
+                      <option value="" disabled>Select a creator…</option>
+                      {creators.filter((c) => c.isActive).map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    {logFieldErrors.creatorId && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{logFieldErrors.creatorId}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-5">
+                    <div>
+                      <label htmlFor="log-platform" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Platform</label>
+                      <select
+                        id="log-platform" name="platform" defaultValue="TikTok"
+                        className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer"
+                      >
+                        <option value="TikTok">TikTok</option>
+                        <option value="Instagram">Instagram</option>
+                        <option value="YouTube">YouTube</option>
+                        <option value="Facebook">Facebook</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="log-views" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Views</label>
+                      <input
+                        id="log-views" name="views" type="number" min="0" defaultValue="0"
+                        onChange={() => logFieldErrors.views && setLogFieldErrors((e) => ({ ...e, views: undefined }))}
+                        className={`w-full h-12 px-4 bg-zinc-900 border rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 transition-all ${
+                          logFieldErrors.views ? 'border-red-500/50 focus:ring-red-500/20' : 'border-zinc-800 focus:ring-emerald-500/20'
+                        }`}
+                      />
+                      {logFieldErrors.views && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{logFieldErrors.views}</p>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="log-title" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Video Title</label>
+                    <input
+                      id="log-title" name="title" type="text"
+                      onChange={() => logFieldErrors.title && setLogFieldErrors((e) => ({ ...e, title: undefined }))}
+                      placeholder="e.g. Product review — Summer Collection"
+                      className={`w-full h-12 px-4 bg-zinc-900 border rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 transition-all placeholder:text-zinc-700 ${
+                        logFieldErrors.title ? 'border-red-500/50 focus:ring-red-500/20' : 'border-zinc-800 focus:ring-emerald-500/20'
+                      }`}
+                    />
+                    {logFieldErrors.title && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{logFieldErrors.title}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-5">
+                    <div>
+                      <label htmlFor="log-revenue" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Revenue ($) — optional</label>
+                      <input
+                        id="log-revenue" name="revenue" type="number" min="0" step="0.01" placeholder="0.00"
+                        className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-zinc-700"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="log-thumbnail" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Thumbnail URL — optional</label>
+                      <input
+                        id="log-thumbnail" name="thumbnailUrl" type="url" placeholder="https://..."
+                        className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-zinc-700"
+                      />
+                    </div>
+                  </div>
+
+                  {logError && (
+                    <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-2xl flex items-start gap-3">
+                      <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-red-400 font-bold">{logError}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-8 bg-zinc-900/50 border-t border-zinc-800 flex justify-end gap-4">
+                  <button type="button" onClick={() => setShowLogModal(false)} className="px-6 h-12 text-[10px] font-bold text-zinc-500 hover:text-zinc-100 uppercase tracking-widest transition-all">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLogging}
+                    className="px-8 h-12 bg-emerald-500 text-black text-[10px] font-bold rounded-2xl hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLogging ? 'Saving...' : 'Log Video'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

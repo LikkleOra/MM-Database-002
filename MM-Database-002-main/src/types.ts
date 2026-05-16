@@ -6,7 +6,7 @@
 export type Tier = 'Bronze' | 'Silver' | 'Gold' | 'Platinum';
 
 export interface SocialAccount {
-  platform: 'TikTok' | 'Instagram' | 'YouTube' | 'Twitch';
+  platform: 'TikTok' | 'Instagram' | 'YouTube' | 'Facebook' | 'Twitch';
   handle: string;
   url: string;
 }

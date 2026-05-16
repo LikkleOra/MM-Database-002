@@ -53,6 +53,7 @@ function AuthenticatedApp() {
   const creatorsData = useQuery(api.creators.list);
   const activitiesData = useQuery(api.activities.listAll);
   const currentUser = useQuery(api.users.me);
+  const usersData = useQuery(api.users.listAll);
   const createActivity = useMutation(api.activities.create);
   const createCreator = useMutation(api.creators.create);
 
@@ -259,13 +260,14 @@ function AuthenticatedApp() {
           <TimelineView
             activities={activities}
             creators={creators}
+            users={usersData ?? []}
             onSelectCreator={(id) => setSelectedCreatorId(id)}
           />
         )}
 
         {activeView === 'reports' && <ReportsView creators={creators} />}
         {activeView === 'settings' && <SettingsView />}
-        {activeView === 'videos' && <VideosView />}
+        {activeView === 'videos' && <VideosView userRole={userRole} creators={creators} />}
 
         {activeView !== 'database' && activeView !== 'timeline' && activeView !== 'reports' && activeView !== 'settings' && activeView !== 'videos' && (
           <div className="flex flex-col items-center justify-center h-[60vh] text-center">

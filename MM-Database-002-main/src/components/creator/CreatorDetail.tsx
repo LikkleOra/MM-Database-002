@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -73,7 +73,7 @@ export function CreatorDetail({ creator, activities, userRole, onClose, onAddAct
     setIsEditing(false);
   }
 
-  async function handleAddAccount(e: React.FormEvent) {
+  async function handleAddAccount(e: FormEvent) {
     e.preventDefault();
     if (!newHandle.trim()) return;
     setIsSavingAccount(true);

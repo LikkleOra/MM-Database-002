@@ -1,4 +1,4 @@
-import { query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 export const list = query({
@@ -24,6 +24,45 @@ export const list = query({
         };
       })
     );
+  },
+});
+
+export const create = mutation({
+  args: {
+    creatorId: v.id("creators"),
+    platform: v.union(
+      v.literal("TikTok"),
+      v.literal("Instagram"),
+      v.literal("YouTube"),
+      v.literal("Facebook")
+    ),
+    title: v.string(),
+    views: v.number(),
+    revenue: v.optional(v.number()),
+    thumbnailUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user || (user.role !== "admin" && user.role !== "manager"))
+      throw new Error("Unauthorized");
+
+    return await ctx.db.insert("videos", {
+      creatorId: args.creatorId,
+      platform: args.platform,
+      externalId: `manual_${Date.now()}`,
+      title: args.title,
+      views: args.views,
+      revenue: args.revenue,
+      thumbnailUrl: args.thumbnailUrl,
+      status: "done",
+      recordedAt: new Date().toISOString(),
+    });
   },
 });
 
