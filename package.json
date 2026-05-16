@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@clerk/clerk-react": "^5.61.6",
+    "convex": "^1.39.1"
+  }
+}
