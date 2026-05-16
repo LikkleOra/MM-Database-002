@@ -24,11 +24,13 @@ import { motion, AnimatePresence } from 'motion/react';
 interface CreatorDetailProps {
   creator: Creator;
   activities: Activity[];
+  userRole: 'admin' | 'manager' | 'viewer';
   onClose: () => void;
   onAddActivity: (creatorId: string) => void;
 }
 
-export function CreatorDetail({ creator, activities, onClose, onAddActivity }: CreatorDetailProps) {
+export function CreatorDetail({ creator, activities, userRole, onClose, onAddActivity }: CreatorDetailProps) {
+  const canWrite = userRole === 'admin' || userRole === 'manager';
   return (
     <motion.div 
       initial={{ x: '100%' }}
@@ -109,13 +111,15 @@ export function CreatorDetail({ creator, activities, onClose, onAddActivity }: C
               <MessageSquare className="w-4 h-4 text-emerald-500" />
               Operational History
             </h3>
-            <button 
-              onClick={() => onAddActivity(creator.id)}
-              className="flex items-center gap-2 h-9 px-4 bg-emerald-500 text-black text-[10px] font-bold rounded-lg hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] uppercase tracking-widest"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              New Log Entry
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => onAddActivity(creator.id)}
+                className="flex items-center gap-2 h-9 px-4 bg-emerald-500 text-black text-[10px] font-bold rounded-lg hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] uppercase tracking-widest"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                New Log Entry
+              </button>
+            )}
           </div>
 
           <div className="space-y-6">
