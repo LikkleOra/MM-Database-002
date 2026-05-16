@@ -18,7 +18,7 @@ import { SettingsView } from './components/dashboard/SettingsView';
 import { VideosView } from './components/dashboard/VideosView';
 import { ActivityType } from './types';
 import { AnimatePresence, motion } from 'motion/react';
-import { Plus, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, X, AlertCircle, CheckCircle, UserPlus } from 'lucide-react';
 
 export default function App() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -54,6 +54,7 @@ function AuthenticatedApp() {
   const activitiesData = useQuery(api.activities.listAll);
   const currentUser = useQuery(api.users.me);
   const createActivity = useMutation(api.activities.create);
+  const createCreator = useMutation(api.creators.create);
 
   const isLoading = creatorsData === undefined || activitiesData === undefined;
   const creators = creatorsData ?? [];
@@ -66,9 +67,12 @@ function AuthenticatedApp() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  // Form field errors
   const [fieldErrors, setFieldErrors] = useState<{ title?: string; description?: string }>({});
+
+  const [showCreateCreatorModal, setShowCreateCreatorModal] = useState(false);
+  const [isCreatingCreator, setIsCreatingCreator] = useState(false);
+  const [createCreatorError, setCreateCreatorError] = useState<string | null>(null);
+  const [creatorFieldErrors, setCreatorFieldErrors] = useState<{ name?: string; discordHandle?: string; commissionRate?: string }>({});
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening';
@@ -138,6 +142,41 @@ function AuthenticatedApp() {
     setShowAddActivityModal(true);
   }
 
+  const handleCreateCreator = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (isCreatingCreator) return;
+
+    const formData = new FormData(e.currentTarget);
+    const name = (formData.get('name') as string) ?? '';
+    const discordHandle = (formData.get('discordHandle') as string) ?? '';
+    const tier = (formData.get('tier') as 'Bronze' | 'Silver' | 'Gold' | 'Platinum') ?? 'Bronze';
+    const commissionRateRaw = parseFloat((formData.get('commissionRate') as string) ?? '0');
+
+    const errors: typeof creatorFieldErrors = {};
+    if (name.trim().length < 2) errors.name = 'Name must be at least 2 characters.';
+    if (!discordHandle.trim()) errors.discordHandle = 'Discord handle is required.';
+    if (isNaN(commissionRateRaw) || commissionRateRaw < 0 || commissionRateRaw > 100)
+      errors.commissionRate = 'Commission rate must be between 0 and 100.';
+
+    if (Object.keys(errors).length > 0) {
+      setCreatorFieldErrors(errors);
+      return;
+    }
+    setCreatorFieldErrors({});
+    setCreateCreatorError(null);
+    setIsCreatingCreator(true);
+
+    try {
+      await createCreator({ name: name.trim(), discordHandle: discordHandle.trim(), tier, commissionRate: commissionRateRaw });
+      setShowCreateCreatorModal(false);
+      showToast('success', `Creator "${name.trim()}" added successfully.`);
+    } catch (err) {
+      setCreateCreatorError(err instanceof Error ? err.message : 'Failed to create creator. Please try again.');
+    } finally {
+      setIsCreatingCreator(false);
+    }
+  };
+
   const handleExportCSV = () => {
     const headers = ['ID', 'Name', 'Discord', 'Tier', 'Status', 'MTD GMV', '7D GMV', 'Joined At'];
     const rows = creators.map((c) => [
@@ -176,6 +215,15 @@ function AuthenticatedApp() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {activeView === 'database' && userRole === 'admin' && !isLoading && (
+              <button
+                onClick={() => { setCreateCreatorError(null); setCreatorFieldErrors({}); setShowCreateCreatorModal(true); }}
+                className="flex items-center gap-2 h-9 px-4 bg-emerald-500 text-black text-[10px] font-bold rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] uppercase tracking-widest"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                New Creator
+              </button>
+            )}
             <div className={`px-4 py-2 bg-zinc-900 border rounded-lg text-[10px] font-bold uppercase tracking-widest shadow-xl ${
               isLoading ? 'border-zinc-700 text-zinc-600' : 'border-zinc-800 text-zinc-500'
             }`}>
@@ -376,6 +424,111 @@ function AuthenticatedApp() {
                     className="px-8 h-12 bg-emerald-500 text-black text-[10px] font-bold rounded-2xl hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSaving ? 'Saving...' : 'Save Log Entry'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Create Creator Modal */}
+      <AnimatePresence>
+        {showCreateCreatorModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowCreateCreatorModal(false)}
+              className="fixed inset-0 bg-zinc-950/80 backdrop-blur-xl"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden"
+            >
+              <form onSubmit={handleCreateCreator} noValidate>
+                <div className="p-8 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-zinc-100 tracking-tight flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                      <UserPlus className="w-5 h-5 text-black" />
+                    </div>
+                    Add New Creator
+                  </h3>
+                  <button type="button" onClick={() => setShowCreateCreatorModal(false)} className="p-2 hover:bg-zinc-800 rounded-xl transition-colors">
+                    <X className="w-6 h-6 text-zinc-500" />
+                  </button>
+                </div>
+
+                <div className="p-8 space-y-6">
+                  <div>
+                    <label htmlFor="creator-name" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Display Name</label>
+                    <input
+                      id="creator-name" name="name" type="text"
+                      onChange={() => creatorFieldErrors.name && setCreatorFieldErrors((e) => ({ ...e, name: undefined }))}
+                      placeholder="e.g. Lila Grace"
+                      className={`w-full h-12 px-4 bg-zinc-900 border rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 transition-all placeholder:text-zinc-700 ${
+                        creatorFieldErrors.name ? 'border-red-500/50 focus:ring-red-500/20' : 'border-zinc-800 focus:ring-emerald-500/20'
+                      }`}
+                    />
+                    {creatorFieldErrors.name && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{creatorFieldErrors.name}</p>}
+                  </div>
+
+                  <div>
+                    <label htmlFor="creator-discord" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Discord Handle</label>
+                    <input
+                      id="creator-discord" name="discordHandle" type="text"
+                      onChange={() => creatorFieldErrors.discordHandle && setCreatorFieldErrors((e) => ({ ...e, discordHandle: undefined }))}
+                      placeholder="e.g. lila_g"
+                      className={`w-full h-12 px-4 bg-zinc-900 border rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 transition-all placeholder:text-zinc-700 ${
+                        creatorFieldErrors.discordHandle ? 'border-red-500/50 focus:ring-red-500/20' : 'border-zinc-800 focus:ring-emerald-500/20'
+                      }`}
+                    />
+                    {creatorFieldErrors.discordHandle && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{creatorFieldErrors.discordHandle}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="creator-tier" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Starting Tier</label>
+                      <select
+                        id="creator-tier" name="tier" defaultValue="Bronze"
+                        className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer"
+                      >
+                        <option value="Bronze">Bronze</option>
+                        <option value="Silver">Silver</option>
+                        <option value="Gold">Gold</option>
+                        <option value="Platinum">Platinum</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="creator-commission" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Commission Rate (%)</label>
+                      <input
+                        id="creator-commission" name="commissionRate" type="number"
+                        min="0" max="100" step="0.1" defaultValue="1"
+                        onChange={() => creatorFieldErrors.commissionRate && setCreatorFieldErrors((e) => ({ ...e, commissionRate: undefined }))}
+                        className={`w-full h-12 px-4 bg-zinc-900 border rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 transition-all ${
+                          creatorFieldErrors.commissionRate ? 'border-red-500/50 focus:ring-red-500/20' : 'border-zinc-800 focus:ring-emerald-500/20'
+                        }`}
+                      />
+                      {creatorFieldErrors.commissionRate && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{creatorFieldErrors.commissionRate}</p>}
+                    </div>
+                  </div>
+
+                  {createCreatorError && (
+                    <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-2xl flex items-start gap-3">
+                      <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-red-400 font-bold">{createCreatorError}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-8 bg-zinc-900/50 border-t border-zinc-800 flex justify-end gap-4">
+                  <button type="button" onClick={() => setShowCreateCreatorModal(false)} className="px-6 h-12 text-[10px] font-bold text-zinc-500 hover:text-zinc-100 uppercase tracking-widest transition-all">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingCreator}
+                    className="px-8 h-12 bg-emerald-500 text-black text-[10px] font-bold rounded-2xl hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isCreatingCreator ? 'Creating...' : 'Create Creator'}
                   </button>
                 </div>
               </form>

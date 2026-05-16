@@ -10,7 +10,9 @@
 
 import type * as activities from "../activities.js";
 import type * as creators from "../creators.js";
+import type * as social_accounts from "../social_accounts.js";
 import type * as users from "../users.js";
+import type * as videos from "../videos.js";
 
 import type {
   ApiFromModules,
@@ -21,7 +23,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   activities: typeof activities;
   creators: typeof creators;
+  social_accounts: typeof social_accounts;
   users: typeof users;
+  videos: typeof videos;
 }>;
 
 /**
