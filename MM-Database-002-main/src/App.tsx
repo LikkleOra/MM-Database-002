@@ -16,6 +16,7 @@ import { TimelineView } from './components/dashboard/TimelineView';
 import { ReportsView } from './components/dashboard/ReportsView';
 import { SettingsView } from './components/dashboard/SettingsView';
 import { VideosView } from './components/dashboard/VideosView';
+import { DiscordTrackingView } from './components/dashboard/DiscordTrackingView';
 import { ActivityType } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { Plus, X, AlertCircle, CheckCircle, UserPlus, Menu } from 'lucide-react';
@@ -283,8 +284,9 @@ function AuthenticatedApp() {
         {activeView === 'reports' && <ReportsView creators={creators} />}
         {activeView === 'settings' && <SettingsView />}
         {activeView === 'videos' && <VideosView userRole={userRole} creators={creators} />}
+        {activeView === 'discord' && <DiscordTrackingView creators={creators} userRole={userRole} />}
 
-        {activeView !== 'database' && activeView !== 'timeline' && activeView !== 'reports' && activeView !== 'settings' && activeView !== 'videos' && (
+        {activeView !== 'database' && activeView !== 'timeline' && activeView !== 'reports' && activeView !== 'settings' && activeView !== 'videos' && activeView !== 'discord' && (
           <div className="flex flex-col items-center justify-center h-[60vh] text-center">
             <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center text-black mb-6 font-bold text-2xl">M</div>
             <h2 className="text-2xl font-bold text-zinc-100 italic font-serif tracking-tight">Module Under Development</h2>
