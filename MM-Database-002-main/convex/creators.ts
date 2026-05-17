@@ -4,37 +4,46 @@ import { v } from "convex/values";
 const EMPTY_METRICS = { gmv: 0, posts: 0, lives: 0, orders: 0 };
 const DEFAULT_METRICS = { mtd: EMPTY_METRICS, sevenDay: EMPTY_METRICS };
 
+const metricsValidator = v.object({
+  mtd: v.object({ gmv: v.number(), posts: v.number(), lives: v.number(), orders: v.number() }),
+  sevenDay: v.object({ gmv: v.number(), posts: v.number(), lives: v.number(), orders: v.number() }),
+});
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
 
-    const creators = await ctx.db.query("creators").collect();
-    return Promise.all(
-      creators.map(async (creator) => {
-        const accounts = await ctx.db
-          .query("social_accounts")
-          .withIndex("by_creator", (q) => q.eq("creatorId", creator._id))
-          .collect();
-        return {
-          id: creator._id as string,
-          name: creator.name,
-          discordHandle: creator.discordHandle,
-          tier: creator.tier,
-          isActive: creator.isActive,
-          commissionRate: creator.commissionRate,
-          managerId: creator.managerId,
-          joinedAt: creator.joinedAt,
-          metrics: creator.metrics ?? DEFAULT_METRICS,
-          accounts: accounts.map((a) => ({
-            platform: a.platform,
-            handle: a.handle,
-            url: a.url,
-          })),
-        };
-      })
-    );
+    // Fetch creators and all social accounts in 2 queries (avoids N+1).
+    const [creators, allAccounts] = await Promise.all([
+      ctx.db.query("creators").collect(),
+      ctx.db.query("social_accounts").collect(),
+    ]);
+
+    const accountsByCreator = new Map<string, typeof allAccounts>();
+    for (const acc of allAccounts) {
+      const key = acc.creatorId as string;
+      if (!accountsByCreator.has(key)) accountsByCreator.set(key, []);
+      accountsByCreator.get(key)!.push(acc);
+    }
+
+    return creators.map((creator) => ({
+      id: creator._id as string,
+      name: creator.name,
+      discordHandle: creator.discordHandle,
+      tier: creator.tier,
+      isActive: creator.isActive,
+      commissionRate: creator.commissionRate,
+      managerId: creator.managerId,
+      joinedAt: creator.joinedAt,
+      metrics: creator.metrics ?? DEFAULT_METRICS,
+      accounts: (accountsByCreator.get(creator._id as string) ?? []).map((a) => ({
+        platform: a.platform,
+        handle: a.handle,
+        url: a.url,
+      })),
+    }));
   },
 });
 
@@ -108,6 +117,7 @@ export const update = mutation({
     isActive: v.optional(v.boolean()),
     commissionRate: v.optional(v.number()),
     managerId: v.optional(v.string()),
+    metrics: v.optional(metricsValidator),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -125,6 +135,29 @@ export const update = mutation({
       Object.entries(updates).filter(([, val]) => val !== undefined)
     );
     await ctx.db.patch(id, patch);
+  },
+});
+
+export const remove = mutation({
+  args: { id: v.id("creators") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user || user.role !== "admin") throw new Error("Unauthorized: admin only");
+
+    // Cascade delete social accounts and activities.
+    const [accounts, activities] = await Promise.all([
+      ctx.db.query("social_accounts").withIndex("by_creator", (q) => q.eq("creatorId", args.id)).collect(),
+      ctx.db.query("activities").withIndex("by_creator", (q) => q.eq("creatorId", args.id)).collect(),
+    ]);
+    for (const acc of accounts) await ctx.db.delete(acc._id);
+    for (const act of activities) await ctx.db.delete(act._id);
+    await ctx.db.delete(args.id);
   },
 });
 

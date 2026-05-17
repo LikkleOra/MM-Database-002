@@ -18,7 +18,7 @@ import { SettingsView } from './components/dashboard/SettingsView';
 import { VideosView } from './components/dashboard/VideosView';
 import { ActivityType } from './types';
 import { AnimatePresence, motion } from 'motion/react';
-import { Plus, X, AlertCircle, CheckCircle, UserPlus } from 'lucide-react';
+import { Plus, X, AlertCircle, CheckCircle, UserPlus, Menu } from 'lucide-react';
 
 export default function App() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -63,6 +63,7 @@ function AuthenticatedApp() {
   const userRole = currentUser?.role ?? 'viewer';
 
   const [activeView, setActiveView] = useState('database');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedCreatorId, setSelectedCreatorId] = useState<string | null>(null);
   const [showAddActivityModal, setShowAddActivityModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -198,11 +199,23 @@ function AuthenticatedApp() {
 
   return (
     <div className="flex min-h-screen bg-zinc-950 font-sans text-zinc-100">
-      <Sidebar activeView={activeView} onViewChange={setActiveView} />
+      <Sidebar
+        activeView={activeView}
+        onViewChange={setActiveView}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-      <main className="flex-1 ml-64 p-8">
+      <main className="flex-1 md:ml-64 p-4 md:p-8 min-w-0">
         <header className="mb-10 flex items-center justify-between">
-          <div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-2 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-500"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div>
             <h1 className="text-3xl font-semibold text-zinc-100 tracking-tight">
               {activeView === 'database' ? `${greeting}, ${firstName}` :
                activeView === 'timeline' ? 'Operational Timeline' :
@@ -214,6 +227,7 @@ function AuthenticatedApp() {
                activeView === 'timeline' ? 'Reviewing cross-creator operational history and system interventions.' :
                'Analyzing aggregate team performance and tier metrics.'}
             </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {activeView === 'database' && userRole === 'admin' && !isLoading && (
@@ -261,6 +275,7 @@ function AuthenticatedApp() {
             activities={activities}
             creators={creators}
             users={usersData ?? []}
+            userRole={userRole}
             onSelectCreator={(id) => setSelectedCreatorId(id)}
           />
         )}

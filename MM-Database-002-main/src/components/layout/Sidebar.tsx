@@ -4,24 +4,17 @@
  */
 
 import {
-  Users,
-  History,
-  Video,
-  Target,
-  MessageSquare,
-  Youtube,
-  Zap,
-  BarChart3,
-  Settings,
-  LayoutDashboard,
-  LogOut
+  Users, History, Video, Target, MessageSquare, Youtube,
+  Zap, BarChart3, Settings, LayoutDashboard, LogOut, X,
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 
 interface SidebarProps {
   activeView: string;
   onViewChange: (view: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const NAV_ITEMS = [
@@ -37,7 +30,7 @@ const NAV_ITEMS = [
   { id: 'reports', label: 'Reports', icon: BarChart3 },
 ];
 
-export function Sidebar({ activeView, onViewChange }: SidebarProps) {
+export function Sidebar({ activeView, onViewChange, isOpen, onClose }: SidebarProps) {
   const { user } = useUser();
   const { signOut } = useClerk();
 
@@ -48,46 +41,57 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
   const displayName = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress || 'User';
   const email = user?.primaryEmailAddress?.emailAddress ?? '';
 
-  return (
-    <aside className="w-64 border-r border-zinc-800 bg-zinc-950/50 backdrop-blur-md h-screen flex flex-col fixed left-0 top-0 z-10">
-      <div className="p-6 border-b border-zinc-800">
+  function handleNav(id: string) {
+    onViewChange(id);
+    onClose();
+  }
+
+  const sidebarContent = (
+    <aside className="w-64 border-r border-zinc-800 bg-zinc-950/95 backdrop-blur-md h-full flex flex-col">
+      <div className="p-6 border-b border-zinc-800 flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2">
           <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center text-black font-bold">M</div>
           MM Database
         </h1>
+        <button
+          onClick={onClose}
+          className="md:hidden p-1.5 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-500"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
-      
+
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         <div className="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">Navigation</div>
         {NAV_ITEMS.map((item) => (
           <button
             key={item.id}
-            onClick={() => onViewChange(item.id)}
+            onClick={() => handleNav(item.id)}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeView === item.id 
-                ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.2)]' 
+              activeView === item.id
+                ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.2)]'
                 : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100'
             }`}
           >
-            <item.icon className="w-4 h-4" />
+            <item.icon className="w-4 h-4 shrink-0" />
             {item.label}
           </button>
         ))}
-        
+
         <div className="px-3 mt-6 mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">System</div>
         <button
-          onClick={() => onViewChange('settings')}
+          onClick={() => handleNav('settings')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-            activeView === 'settings' 
-              ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.2)]' 
+            activeView === 'settings'
+              ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.2)]'
               : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100'
           }`}
         >
-          <Settings className="w-4 h-4" />
+          <Settings className="w-4 h-4 shrink-0" />
           Settings
         </button>
       </nav>
-      
+
       <div className="p-4 border-t border-zinc-800 space-y-2">
         <div className="flex items-center gap-3 p-2 rounded-lg bg-zinc-900/50 border border-zinc-800">
           {user?.imageUrl ? (
@@ -111,5 +115,40 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
         </button>
       </div>
     </aside>
+  );
+
+  return (
+    <>
+      {/* Desktop: always visible fixed sidebar */}
+      <div className="hidden md:block w-64 shrink-0">
+        <div className="fixed left-0 top-0 h-screen w-64 z-10">
+          {sidebarContent}
+        </div>
+      </div>
+
+      {/* Mobile: slide-in drawer with backdrop */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="fixed inset-0 bg-zinc-950/70 backdrop-blur-sm z-40 md:hidden"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+              className="fixed left-0 top-0 h-screen w-64 z-50 md:hidden"
+            >
+              {sidebarContent}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

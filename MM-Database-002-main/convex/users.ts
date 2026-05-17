@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
 
 // Syncs the signed-in Clerk user into the Convex users table.
 // Call this once on first sign-in from the frontend.
@@ -43,13 +44,40 @@ export const me = query({
   },
 });
 
-// Returns all users (clerkId + name) so the timeline can resolve logged-by names.
+// Returns all users — used by timeline (name resolution) and settings (team management).
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
     const users = await ctx.db.query("users").collect();
-    return users.map((u) => ({ clerkId: u.clerkId, name: u.name }));
+    return users.map((u) => ({
+      id: u._id as string,
+      clerkId: u.clerkId,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+    }));
+  },
+});
+
+// Admin-only: change any user's role.
+export const updateRole = mutation({
+  args: {
+    userId: v.id("users"),
+    role: v.union(v.literal("admin"), v.literal("manager"), v.literal("viewer")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const requester = await ctx.db
+      .query("users")
+      .withIndex("by_clerk", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!requester || requester.role !== "admin")
+      throw new Error("Unauthorized: admin only");
+
+    await ctx.db.patch(args.userId, { role: args.role });
   },
 });

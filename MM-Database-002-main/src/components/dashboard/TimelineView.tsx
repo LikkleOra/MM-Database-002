@@ -4,8 +4,11 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
 import { Activity, Creator } from '../../types';
-import { History, Search, Clock, ArrowRight, ChevronDown, AlertCircle } from 'lucide-react';
+import { History, Search, Clock, ArrowRight, ChevronDown, AlertCircle, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const TYPE_OPTIONS = ['All', 'win', 'loss', 'observation', 'adjustment'] as const;
@@ -31,14 +34,30 @@ interface TimelineViewProps {
   activities: Activity[];
   creators: Creator[];
   users: Array<{ clerkId: string; name: string }>;
+  userRole: 'admin' | 'manager' | 'viewer';
   onSelectCreator: (id: string) => void;
 }
 
-export function TimelineView({ activities, creators, users, onSelectCreator }: TimelineViewProps) {
+export function TimelineView({ activities, creators, users, userRole, onSelectCreator }: TimelineViewProps) {
+  const removeActivity = useMutation(api.activities.remove);
+  const canWrite = userRole === 'admin' || userRole === 'manager';
+
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
   const [showTypeMenu, setShowTypeMenu] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(id: string) {
+    setIsDeletingId(id);
+    try {
+      await removeActivity({ id: id as Id<'activities'> });
+      setConfirmDeleteId(null);
+    } finally {
+      setIsDeletingId(null);
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -206,6 +225,32 @@ export function TimelineView({ activities, creators, users, onSelectCreator }: T
                           }`}>
                             {activity.impact} Impact
                           </span>
+                        )}
+                        {canWrite && (
+                          confirmDeleteId === activity.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleDelete(activity.id)}
+                                disabled={isDeletingId === activity.id}
+                                className="px-2 py-0.5 bg-red-500/10 border border-red-500/30 text-red-400 text-[9px] font-bold rounded uppercase tracking-widest hover:bg-red-500/20 disabled:opacity-50"
+                              >
+                                {isDeletingId === activity.id ? '…' : 'Delete'}
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="px-2 py-0.5 text-[9px] font-bold text-zinc-500 hover:text-zinc-200 uppercase tracking-widest"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDeleteId(activity.id)}
+                              className="p-1 hover:bg-zinc-800 rounded text-zinc-700 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )
                         )}
                       </div>
                     </div>

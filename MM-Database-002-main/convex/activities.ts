@@ -1,6 +1,23 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+export const remove = mutation({
+  args: { id: v.id("activities") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user || (user.role !== "admin" && user.role !== "manager"))
+      throw new Error("Unauthorized");
+
+    await ctx.db.delete(args.id);
+  },
+});
+
 export const create = mutation({
   args: {
     creatorId: v.id("creators"),
