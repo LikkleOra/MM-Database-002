@@ -6,6 +6,7 @@
 import {
   Users, History, Video, Target, MessageSquare, Youtube,
   Zap, BarChart3, Settings, LayoutDashboard, LogOut, X,
+  Inbox, Trophy, DollarSign,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUser, useClerk } from '@clerk/clerk-react';
@@ -20,6 +21,9 @@ interface SidebarProps {
 const NAV_ITEMS = [
   { id: 'timeline', label: 'Timeline', icon: History },
   { id: 'database', label: 'Creator Database', icon: Users },
+  { id: 'submissions', label: 'Submissions', icon: Inbox },
+  { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
+  { id: 'payouts', label: 'Payouts', icon: DollarSign },
   { id: 'videos', label: 'Videos', icon: Video },
   { id: 'tracker', label: 'Tracker', icon: Target },
   { id: 'discord', label: 'Discord Tracking', icon: MessageSquare },

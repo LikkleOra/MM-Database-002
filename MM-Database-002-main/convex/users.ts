@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 // Syncs the signed-in Clerk user into the Convex users table.
@@ -58,6 +58,13 @@ export const listAll = query({
       email: u.email,
       role: u.role,
     }));
+  },
+});
+
+export const getByClerkId = internalQuery({
+  args: { clerkId: v.string() },
+  handler: async (ctx, { clerkId }) => {
+    return ctx.db.query("users").withIndex("by_clerk", (q) => q.eq("clerkId", clerkId)).unique();
   },
 });
 

@@ -89,6 +89,7 @@ Fields:
 - `joinedAt`
 - `notes`
 - `tags`
+- `reputationScore` // 0-100 based on consistency/output
 - `isArchived`
 - `createdAt`
 - `updatedAt`
@@ -167,6 +168,19 @@ Notes:
 - This table is the live operational layer.
 - One record per creator per window is acceptable.
 - It should be cheap to query and cheap to sort.
+
+### `content_submissions`
+
+Purpose: 
+- Track the "Casual" submission flow from Discord
+
+Fields:
+- `creatorId`
+- `url`
+- `platform`
+- `hookTag` // "rage_bait", "authority", "curiosity"
+- `patternTag` // "storytelling", "listicle", "flex"
+- `status` // "pending_review", "approved", "rejected"
 
 ### `creator_metric_snapshots`
 
@@ -456,4 +470,3 @@ Add `creator_metric_snapshots` as early as practical even if it is lightly popul
 - Convex indexes: https://docs.convex.dev/database/reading-data/indexes/
 - Convex pagination: https://docs.convex.dev/database/pagination
 - TikTok Affiliate Center analytics: https://seller-us.tiktok.com/university/essay?knowledge_id=6115786490283790&lang=en
-

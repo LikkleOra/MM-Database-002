@@ -10,9 +10,16 @@
 
 import type * as activities from "../activities.js";
 import type * as creators from "../creators.js";
+import type * as crons from "../crons.js";
+import type * as discord from "../discord.js";
+import type * as http from "../http.js";
+import type * as leaderboard from "../leaderboard.js";
+import type * as payouts from "../payouts.js";
 import type * as social_accounts from "../social_accounts.js";
+import type * as submissions from "../submissions.js";
 import type * as users from "../users.js";
 import type * as videos from "../videos.js";
+import type * as youtube from "../youtube.js";
 
 import type {
   ApiFromModules,
@@ -23,9 +30,16 @@ import type {
 declare const fullApi: ApiFromModules<{
   activities: typeof activities;
   creators: typeof creators;
+  crons: typeof crons;
+  discord: typeof discord;
+  http: typeof http;
+  leaderboard: typeof leaderboard;
+  payouts: typeof payouts;
   social_accounts: typeof social_accounts;
+  submissions: typeof submissions;
   users: typeof users;
   videos: typeof videos;
+  youtube: typeof youtube;
 }>;
 
 /**

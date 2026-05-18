@@ -21,6 +21,8 @@ export const list = query({
           status: video.status,
           thumbnailUrl: video.thumbnailUrl,
           recordedAt: video.recordedAt,
+          externalId: video.externalId,
+          statsRefreshedAt: video.statsRefreshedAt,
         };
       })
     );

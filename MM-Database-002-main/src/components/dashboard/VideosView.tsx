@@ -4,11 +4,11 @@
  */
 
 import { useState, useMemo, FormEvent } from 'react';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { Creator } from '../../types';
-import { Play, Eye, DollarSign, MoreVertical, ExternalLink, Search, ChevronDown, Video, Plus, X, AlertCircle } from 'lucide-react';
+import { Play, Eye, DollarSign, MoreVertical, ExternalLink, Search, ChevronDown, Video, Plus, X, AlertCircle, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const PLATFORMS = ['All', 'TikTok', 'Instagram', 'YouTube', 'Facebook'] as const;
@@ -29,6 +29,8 @@ interface VideosViewProps {
 export function VideosView({ userRole, creators }: VideosViewProps) {
   const videosData = useQuery(api.videos.list);
   const createVideo = useMutation(api.videos.create);
+  const refreshVideo = useAction(api.youtube.refreshVideo);
+  const logVideoByUrl = useAction(api.youtube.logVideoByUrl);
 
   const isLoading = videosData === undefined;
   const videos = videosData ?? [];
@@ -41,6 +43,10 @@ export function VideosView({ userRole, creators }: VideosViewProps) {
   const [isLogging, setIsLogging] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
   const [logFieldErrors, setLogFieldErrors] = useState<{ title?: string; views?: string; creatorId?: string }>({});
+  const [logPlatform, setLogPlatform] = useState<VideoPlatform>('TikTok');
+
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   const canWrite = userRole === 'admin' || userRole === 'manager';
 
@@ -53,20 +59,52 @@ export function VideosView({ userRole, creators }: VideosViewProps) {
     });
   }, [videos, search, platform]);
 
+  async function handleRefresh(videoId: string) {
+    if (refreshingId) return;
+    setRefreshingId(videoId);
+    setRefreshError(null);
+    try {
+      await refreshVideo({ videoId: videoId as Id<'videos'> });
+    } catch (err) {
+      setRefreshError(err instanceof Error ? err.message : 'Refresh failed.');
+    } finally {
+      setRefreshingId(null);
+    }
+  }
+
   const handleLogVideo = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isLogging) return;
 
     const formData = new FormData(e.currentTarget);
     const creatorId = (formData.get('creatorId') as string) ?? '';
-    const videoPlatform = (formData.get('platform') as VideoPlatform) ?? 'TikTok';
-    const title = (formData.get('title') as string) ?? '';
-    const viewsRaw = parseInt((formData.get('views') as string) ?? '0', 10);
-    const revenueRaw = (formData.get('revenue') as string).trim();
-    const thumbnailUrl = (formData.get('thumbnailUrl') as string).trim();
+    const revenueRaw = (formData.get('revenue') as string ?? '').trim();
 
     const errors: typeof logFieldErrors = {};
     if (!creatorId) errors.creatorId = 'Please select a creator.';
+
+    if (logPlatform === 'YouTube') {
+      const videoUrl = (formData.get('videoUrl') as string ?? '').trim();
+      if (!videoUrl) { setLogError('YouTube URL is required.'); return; }
+      setLogFieldErrors({});
+      setLogError(null);
+      setIsLogging(true);
+      try {
+        await logVideoByUrl({ creatorId: creatorId as Id<'creators'>, videoUrl });
+        setShowLogModal(false);
+        setLogPlatform('TikTok');
+      } catch (err) {
+        setLogError(err instanceof Error ? err.message : 'Failed to log video.');
+      } finally {
+        setIsLogging(false);
+      }
+      return;
+    }
+
+    const title = (formData.get('title') as string) ?? '';
+    const viewsRaw = parseInt((formData.get('views') as string) ?? '0', 10);
+    const thumbnailUrl = (formData.get('thumbnailUrl') as string ?? '').trim();
+
     if (title.trim().length < 2) errors.title = 'Title must be at least 2 characters.';
     if (isNaN(viewsRaw) || viewsRaw < 0) errors.views = 'Views must be a valid number.';
 
@@ -81,13 +119,14 @@ export function VideosView({ userRole, creators }: VideosViewProps) {
     try {
       await createVideo({
         creatorId: creatorId as Id<'creators'>,
-        platform: videoPlatform,
+        platform: logPlatform,
         title: title.trim(),
         views: viewsRaw,
         revenue: revenueRaw ? parseFloat(revenueRaw) : undefined,
         thumbnailUrl: thumbnailUrl || undefined,
       });
       setShowLogModal(false);
+      setLogPlatform('TikTok');
     } catch (err) {
       setLogError(err instanceof Error ? err.message : 'Failed to log video. Please try again.');
     } finally {
@@ -112,7 +151,7 @@ export function VideosView({ userRole, creators }: VideosViewProps) {
         <div className="flex items-center gap-3">
           {canWrite && !isLoading && (
             <button
-              onClick={() => { setLogError(null); setLogFieldErrors({}); setShowLogModal(true); }}
+              onClick={() => { setLogError(null); setLogFieldErrors({}); setLogPlatform('TikTok'); setShowLogModal(true); }}
               className="flex items-center gap-2 h-9 px-4 bg-emerald-500 text-black text-[10px] font-bold rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] uppercase tracking-widest"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -254,10 +293,25 @@ export function VideosView({ userRole, creators }: VideosViewProps) {
                       </div>
                     )}
                   </div>
-                  <button className="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-100">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {video.platform === 'YouTube' && canWrite && (
+                      <button
+                        onClick={() => handleRefresh(video.id)}
+                        disabled={refreshingId === video.id}
+                        className="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-red-400 transition-colors disabled:opacity-40"
+                        title="Refresh YouTube stats"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${refreshingId === video.id ? 'animate-spin text-red-400' : ''}`} />
+                      </button>
+                    )}
+                    <button className="p-1.5 hover:bg-zinc-800 rounded-md text-zinc-500 hover:text-zinc-100">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
+                {refreshError && refreshingId === null && video.platform === 'YouTube' && (
+                  <p className="text-[9px] text-red-400 font-bold mt-1">{refreshError}</p>
+                )}
               </div>
             </motion.div>
           ))}
@@ -309,61 +363,86 @@ export function VideosView({ userRole, creators }: VideosViewProps) {
                     {logFieldErrors.creatorId && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{logFieldErrors.creatorId}</p>}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-5">
-                    <div>
-                      <label htmlFor="log-platform" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Platform</label>
-                      <select
-                        id="log-platform" name="platform" defaultValue="TikTok"
-                        className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer"
-                      >
-                        <option value="TikTok">TikTok</option>
-                        <option value="Instagram">Instagram</option>
-                        <option value="YouTube">YouTube</option>
-                        <option value="Facebook">Facebook</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label htmlFor="log-views" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Views</label>
-                      <input
-                        id="log-views" name="views" type="number" min="0" defaultValue="0"
-                        onChange={() => logFieldErrors.views && setLogFieldErrors((e) => ({ ...e, views: undefined }))}
-                        className={`w-full h-12 px-4 bg-zinc-900 border rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 transition-all ${
-                          logFieldErrors.views ? 'border-red-500/50 focus:ring-red-500/20' : 'border-zinc-800 focus:ring-emerald-500/20'
-                        }`}
-                      />
-                      {logFieldErrors.views && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{logFieldErrors.views}</p>}
-                    </div>
-                  </div>
-
                   <div>
-                    <label htmlFor="log-title" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Video Title</label>
-                    <input
-                      id="log-title" name="title" type="text"
-                      onChange={() => logFieldErrors.title && setLogFieldErrors((e) => ({ ...e, title: undefined }))}
-                      placeholder="e.g. Product review — Summer Collection"
-                      className={`w-full h-12 px-4 bg-zinc-900 border rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 transition-all placeholder:text-zinc-700 ${
-                        logFieldErrors.title ? 'border-red-500/50 focus:ring-red-500/20' : 'border-zinc-800 focus:ring-emerald-500/20'
-                      }`}
-                    />
-                    {logFieldErrors.title && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{logFieldErrors.title}</p>}
+                    <label htmlFor="log-platform" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Platform</label>
+                    <select
+                      id="log-platform" name="platform"
+                      value={logPlatform}
+                      onChange={(e) => setLogPlatform(e.target.value as VideoPlatform)}
+                      className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="TikTok">TikTok</option>
+                      <option value="Instagram">Instagram</option>
+                      <option value="YouTube">YouTube</option>
+                      <option value="Facebook">Facebook</option>
+                    </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-5">
+                  {logPlatform === 'YouTube' ? (
                     <div>
-                      <label htmlFor="log-revenue" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Revenue ($) — optional</label>
+                      <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">YouTube URL</label>
                       <input
-                        id="log-revenue" name="revenue" type="number" min="0" step="0.01" placeholder="0.00"
+                        name="videoUrl" type="url"
+                        placeholder="https://youtube.com/watch?v=... or https://youtu.be/..."
+                        className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-red-500/20 transition-all placeholder:text-zinc-700"
+                      />
+                      <p className="mt-1.5 px-1 text-[10px] text-zinc-600 font-medium">
+                        Title, views, and thumbnail are fetched automatically from YouTube.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-5">
+                        <div>
+                          <label htmlFor="log-views" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Views</label>
+                          <input
+                            id="log-views" name="views" type="number" min="0" defaultValue="0"
+                            onChange={() => logFieldErrors.views && setLogFieldErrors((e) => ({ ...e, views: undefined }))}
+                            className={`w-full h-12 px-4 bg-zinc-900 border rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 transition-all ${
+                              logFieldErrors.views ? 'border-red-500/50 focus:ring-red-500/20' : 'border-zinc-800 focus:ring-emerald-500/20'
+                            }`}
+                          />
+                          {logFieldErrors.views && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{logFieldErrors.views}</p>}
+                        </div>
+                        <div>
+                          <label htmlFor="log-revenue" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Revenue ($) — optional</label>
+                          <input
+                            id="log-revenue" name="revenue" type="number" min="0" step="0.01" placeholder="0.00"
+                            className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-zinc-700"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label htmlFor="log-title" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Video Title</label>
+                        <input
+                          id="log-title" name="title" type="text"
+                          onChange={() => logFieldErrors.title && setLogFieldErrors((e) => ({ ...e, title: undefined }))}
+                          placeholder="e.g. Product review — Summer Collection"
+                          className={`w-full h-12 px-4 bg-zinc-900 border rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 transition-all placeholder:text-zinc-700 ${
+                            logFieldErrors.title ? 'border-red-500/50 focus:ring-red-500/20' : 'border-zinc-800 focus:ring-emerald-500/20'
+                          }`}
+                        />
+                        {logFieldErrors.title && <p className="mt-1.5 px-1 text-[10px] font-bold text-red-400">{logFieldErrors.title}</p>}
+                      </div>
+                      <div>
+                        <label htmlFor="log-thumbnail" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Thumbnail URL — optional</label>
+                        <input
+                          id="log-thumbnail" name="thumbnailUrl" type="url" placeholder="https://..."
+                          className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-zinc-700"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {logPlatform === 'YouTube' && (
+                    <div>
+                      <label htmlFor="log-revenue-yt" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Revenue ($) — optional</label>
+                      <input
+                        id="log-revenue-yt" name="revenue" type="number" min="0" step="0.01" placeholder="0.00"
                         className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-zinc-700"
                       />
                     </div>
-                    <div>
-                      <label htmlFor="log-thumbnail" className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 px-1">Thumbnail URL — optional</label>
-                      <input
-                        id="log-thumbnail" name="thumbnailUrl" type="url" placeholder="https://..."
-                        className="w-full h-12 px-4 bg-zinc-900 border border-zinc-800 rounded-2xl text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-zinc-700"
-                      />
-                    </div>
-                  </div>
+                  )}
 
                   {logError && (
                     <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-2xl flex items-start gap-3">

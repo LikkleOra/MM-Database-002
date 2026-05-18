@@ -524,6 +524,7 @@ export default defineSchema({
     isActive: v.boolean(),
     joinedAt: v.number(),
     notes: v.optional(v.string()),
+    reputationScore: v.optional(v.number()), // For Gamification
     managerId: v.id("users"),
     tags: v.optional(v.array(v.string())),
   })
@@ -552,8 +553,19 @@ export default defineSchema({
     postCount: v.number(),
     liveCount: v.number(),
     engagementRate: v.optional(v.number()),
+    viralityScore: v.optional(v.number()), // For Leaderboards
     lastUpdated: v.number(),
     source: v.union(v.literal("manual"), v.literal("api"), v.literal("webhook")),
+  }).index("by_creator", ["creatorId"]),
+
+  submissions: defineTable({
+    creatorId: v.id("creators"),
+    url: v.string(),
+    platform: v.string(),
+    hookType: v.optional(v.string()), // e.g. "Rage Bait"
+    patternType: v.optional(v.string()), // e.g. "Storytelling"
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("flagged")),
+    submittedAt: v.number(),
   }).index("by_creator", ["creatorId"]),
 
   activities: defineTable({

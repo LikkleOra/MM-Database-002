@@ -17,6 +17,10 @@ import { ReportsView } from './components/dashboard/ReportsView';
 import { SettingsView } from './components/dashboard/SettingsView';
 import { VideosView } from './components/dashboard/VideosView';
 import { DiscordTrackingView } from './components/dashboard/DiscordTrackingView';
+import { YouTubeView } from './components/dashboard/YouTubeView';
+import { SubmissionsView } from './components/dashboard/SubmissionsView';
+import { LeaderboardView } from './components/dashboard/LeaderboardView';
+import { PayoutsView } from './components/dashboard/PayoutsView';
 import { ActivityType } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { Plus, X, AlertCircle, CheckCircle, UserPlus, Menu } from 'lucide-react';
@@ -221,11 +225,21 @@ function AuthenticatedApp() {
               {activeView === 'database' ? `${greeting}, ${firstName}` :
                activeView === 'timeline' ? 'Operational Timeline' :
                activeView === 'reports' ? 'Performance Reports' :
+               activeView === 'youtube' ? 'YouTube Analytics' :
+               activeView === 'discord' ? 'Discord Tracking' :
+               activeView === 'videos' ? 'Content Explorer' :
+               activeView === 'settings' ? 'System Settings' :
+               activeView === 'submissions' ? 'Submissions' :
+               activeView === 'leaderboard' ? 'Leaderboard' :
+               activeView === 'payouts' ? 'Payouts' :
                activeView.charAt(0).toUpperCase() + activeView.slice(1)}
             </h1>
             <p className="text-zinc-500 mt-1 font-medium text-sm">
               {activeView === 'database' ? today :
                activeView === 'timeline' ? 'Reviewing cross-creator operational history and system interventions.' :
+               activeView === 'submissions' ? 'Review and tag incoming creator content submissions.' :
+               activeView === 'leaderboard' ? 'Ranked creator performance by GMV, posts, and orders.' :
+               activeView === 'payouts' ? 'Track and manage creator payout lifecycle.' :
                'Analyzing aggregate team performance and tier metrics.'}
             </p>
             </div>
@@ -285,8 +299,12 @@ function AuthenticatedApp() {
         {activeView === 'settings' && <SettingsView />}
         {activeView === 'videos' && <VideosView userRole={userRole} creators={creators} />}
         {activeView === 'discord' && <DiscordTrackingView creators={creators} userRole={userRole} />}
+        {activeView === 'youtube' && <YouTubeView userRole={userRole} creators={creators} />}
+        {activeView === 'submissions' && <SubmissionsView userRole={userRole} creators={creators} />}
+        {activeView === 'leaderboard' && <LeaderboardView userRole={userRole} />}
+        {activeView === 'payouts' && <PayoutsView userRole={userRole} creators={creators} />}
 
-        {activeView !== 'database' && activeView !== 'timeline' && activeView !== 'reports' && activeView !== 'settings' && activeView !== 'videos' && activeView !== 'discord' && (
+        {activeView !== 'database' && activeView !== 'timeline' && activeView !== 'reports' && activeView !== 'settings' && activeView !== 'videos' && activeView !== 'discord' && activeView !== 'youtube' && activeView !== 'submissions' && activeView !== 'leaderboard' && activeView !== 'payouts' && (
           <div className="flex flex-col items-center justify-center h-[60vh] text-center">
             <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center text-black mb-6 font-bold text-2xl">M</div>
             <h2 className="text-2xl font-bold text-zinc-100 italic font-serif tracking-tight">Module Under Development</h2>
