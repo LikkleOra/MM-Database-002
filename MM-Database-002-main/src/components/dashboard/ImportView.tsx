@@ -153,6 +153,14 @@ function parseCSV(text: string): ParsedCreator[] {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
+function cleanProfile(p: ParsedCreator['profile']): Record<string, string> | undefined {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(p)) {
+    if (v && typeof v === 'string' && v.trim()) out[k] = v.trim();
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 type Step = 'upload' | 'preview' | 'done';
 
 export function ImportView() {
@@ -176,15 +184,20 @@ export function ImportView() {
     setFileName(file.name);
 
     const reader = new FileReader();
+    reader.onerror = () => setParseError('Could not read file. Try again.');
     reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const rows = parseCSV(text);
-      if (rows.length === 0) {
-        setParseError('Could not find a "Creator Name" column. Make sure the sheet is exported as-is from Google Sheets.');
-        return;
+      try {
+        const text = e.target?.result as string;
+        const rows = parseCSV(text);
+        if (rows.length === 0) {
+          setParseError('Could not find a "Creator Name" column. Make sure the sheet is exported as-is from Google Sheets.');
+          return;
+        }
+        setParsed(rows);
+        setStep('preview');
+      } catch (err) {
+        setParseError(err instanceof Error ? err.message : 'Failed to parse CSV. Check the file format.');
       }
-      setParsed(rows);
-      setStep('preview');
     };
     reader.readAsText(file);
   }
@@ -203,7 +216,7 @@ export function ImportView() {
       const payload = parsed.map(({ discordHandle, name, profile, accounts }) => ({
         discordHandle,
         name,
-        profile: Object.values(profile).some(Boolean) ? profile : undefined,
+        profile: cleanProfile(profile),
         accounts,
       }));
       const result = await bulkImport({ creators: payload });
