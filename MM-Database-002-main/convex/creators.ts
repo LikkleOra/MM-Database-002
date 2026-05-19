@@ -161,6 +161,86 @@ export const remove = mutation({
   },
 });
 
+const profileValidator = v.optional(v.object({
+  realName: v.optional(v.string()),
+  email: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  location: v.optional(v.string()),
+  niche: v.optional(v.string()),
+  contentFormat: v.optional(v.string()),
+  toneVibe: v.optional(v.string()),
+  postingFrequency: v.optional(v.string()),
+}));
+
+export const bulkImport = mutation({
+  args: {
+    creators: v.array(v.object({
+      discordHandle: v.string(),
+      name: v.string(),
+      profile: profileValidator,
+      accounts: v.array(v.object({
+        platform: v.union(
+          v.literal("TikTok"),
+          v.literal("Instagram"),
+          v.literal("YouTube"),
+          v.literal("Facebook"),
+          v.literal("Twitch"),
+        ),
+        handle: v.string(),
+        url: v.string(),
+      })),
+    })),
+  },
+  handler: async (ctx, { creators }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user || (user.role !== "admin" && user.role !== "manager"))
+      throw new Error("Unauthorized: admin or manager required");
+
+    const existing = await ctx.db.query("creators").collect();
+    const existingHandles = new Set(existing.map((c) => c.discordHandle.toLowerCase()));
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const c of creators) {
+      if (existingHandles.has(c.discordHandle.toLowerCase())) {
+        skipped++;
+        continue;
+      }
+
+      const creatorId = await ctx.db.insert("creators", {
+        name: c.name,
+        discordHandle: c.discordHandle,
+        tier: "Bronze",
+        isActive: true,
+        commissionRate: 1,
+        joinedAt: new Date().toISOString(),
+        profile: c.profile ?? undefined,
+      });
+
+      for (const account of c.accounts) {
+        await ctx.db.insert("social_accounts", {
+          creatorId,
+          platform: account.platform,
+          handle: account.handle,
+          url: account.url,
+        });
+      }
+
+      existingHandles.add(c.discordHandle.toLowerCase());
+      created++;
+    }
+
+    return { created, skipped };
+  },
+});
+
 // One-time seed: inserts mock creators if the table is empty.
 export const seed = mutation({
   args: {},

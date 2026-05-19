@@ -6,7 +6,7 @@
 import {
   Users, History, Video, Target, MessageSquare, Youtube,
   Zap, BarChart3, Settings, LayoutDashboard, LogOut, X,
-  Inbox, Trophy, DollarSign,
+  Inbox, Trophy, DollarSign, FileUp,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useUser, useClerk } from '@clerk/clerk-react';
@@ -83,6 +83,17 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose }: SidebarPr
         ))}
 
         <div className="px-3 mt-6 mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500">System</div>
+        <button
+          onClick={() => handleNav('import')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeView === 'import'
+              ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+              : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100'
+          }`}
+        >
+          <FileUp className="w-4 h-4 shrink-0" />
+          Import Creators
+        </button>
         <button
           onClick={() => handleNav('settings')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${

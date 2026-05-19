@@ -21,6 +21,16 @@ export default defineSchema({
       mtd: v.object({ gmv: v.number(), posts: v.number(), lives: v.number(), orders: v.number() }),
       sevenDay: v.object({ gmv: v.number(), posts: v.number(), lives: v.number(), orders: v.number() }),
     })),
+    profile: v.optional(v.object({
+      realName: v.optional(v.string()),
+      email: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      location: v.optional(v.string()),
+      niche: v.optional(v.string()),
+      contentFormat: v.optional(v.string()),
+      toneVibe: v.optional(v.string()),
+      postingFrequency: v.optional(v.string()),
+    })),
   }).index("by_discord", ["discordHandle"]),
 
   social_accounts: defineTable({
