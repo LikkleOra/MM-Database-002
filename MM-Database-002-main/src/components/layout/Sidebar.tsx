@@ -19,18 +19,13 @@ interface SidebarProps {
 }
 
 const NAV_ITEMS = [
-  { id: 'timeline', label: 'Timeline', icon: History },
   { id: 'database', label: 'Creator Database', icon: Users },
-  { id: 'submissions', label: 'Submissions', icon: Inbox },
-  { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-  { id: 'payouts', label: 'Payouts', icon: DollarSign },
   { id: 'videos', label: 'Videos', icon: Video },
-  { id: 'tracker', label: 'Tracker', icon: Target },
+  { id: 'submissions', label: 'Submissions', icon: Inbox },
+  { id: 'payouts', label: 'Payouts', icon: DollarSign },
   { id: 'discord', label: 'Discord Tracking', icon: MessageSquare },
-  { id: 'youtube', label: 'YouTube', icon: Youtube },
-  { id: 'gmv', label: 'GMV Max Tests', icon: Zap },
-  { id: 'analysis', label: 'Account Analysis', icon: BarChart3 },
-  { id: 'simulator', label: 'Simulator', icon: LayoutDashboard },
+  { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
+  { id: 'timeline', label: 'Timeline', icon: History },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
 ];
 
