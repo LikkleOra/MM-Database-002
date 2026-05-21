@@ -1,4 +1,15 @@
 {
+  "name": "mm-database-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix MM-Database-002-main",
+    "build": "npm run build --prefix MM-Database-002-main",
+    "preview": "npm run preview --prefix MM-Database-002-main",
+    "clean": "npm run clean --prefix MM-Database-002-main",
+    "lint": "npm run lint --prefix MM-Database-002-main",
+    "convex:dev": "npx convex dev --project mm-database-002-main --chdir MM-Database-002-main",
+    "convex:deploy": "npx convex deploy --chdir MM-Database-002-main"
+  },
   "dependencies": {
     "@clerk/clerk-react": "^5.61.6",
     "convex": "^1.39.1"
