@@ -43,12 +43,63 @@ export const list = query({
   },
 });
 
+/**
+ * Calculate payout for a creator based on their video revenues
+ * Takes the sum of all video revenues and applies the commission rate
+ */
+export const calculateCreatorPayout = query({
+  args: {
+    creatorId: v.id("creators"),
+    period: v.string(), // "YYYY-MM"
+  },
+  handler: async (ctx, { creatorId, period }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const creator = await ctx.db.get(creatorId);
+    if (!creator) return null;
+
+    // Get all published videos from this creator in the period
+    const videos = await ctx.db
+      .query("videos")
+      .withIndex("by_creator", (q) => q.eq("creatorId", creatorId))
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .collect();
+
+    // Filter by period (if recordedAt starts with "YYYY-MM")
+    const periodVideos = videos.filter((v) =>
+      v.recordedAt.startsWith(period)
+    );
+
+    // Sum revenue
+    const totalRevenue = periodVideos.reduce((sum, v) => sum + (v.revenue ?? 0), 0);
+
+    // Apply commission rate
+    const commissionAmount = (totalRevenue * creator.commissionRate) / 100;
+
+    return {
+      creatorId,
+      creatorName: creator.name,
+      period,
+      videoCount: periodVideos.length,
+      totalRevenue,
+      commissionRate: creator.commissionRate,
+      payoutAmount: commissionAmount,
+      videoIds: periodVideos.map((v) => v._id as string),
+    };
+  },
+});
+
+/**
+ * Create a new payout record
+ */
 export const create = mutation({
   args: {
     creatorId: v.id("creators"),
     amount: v.number(),
     period: v.string(),
     notes: v.optional(v.string()),
+    calculatedFrom: v.optional(v.array(v.id("videos"))),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -62,14 +113,21 @@ export const create = mutation({
       throw new Error("Unauthorized: admin or manager required");
 
     return ctx.db.insert("payouts", {
-      ...args,
+      creatorId: args.creatorId,
+      amount: args.amount,
+      period: args.period,
       status: "pending",
+      notes: args.notes,
+      calculatedFrom: args.calculatedFrom,
       createdAt: new Date().toISOString(),
       createdBy: identity.subject,
     });
   },
 });
 
+/**
+ * Update payout status
+ */
 export const updateStatus = mutation({
   args: {
     payoutId: v.id("payouts"),
@@ -101,6 +159,9 @@ export const updateStatus = mutation({
   },
 });
 
+/**
+ * Get payout summary
+ */
 export const summary = query({
   args: {},
   handler: async (ctx) => {

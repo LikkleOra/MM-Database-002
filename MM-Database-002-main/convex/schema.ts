@@ -17,9 +17,13 @@ export default defineSchema({
     commissionRate: v.number(),
     managerId: v.optional(v.string()),
     joinedAt: v.string(),
-    metrics: v.optional(v.object({
-      mtd: v.object({ gmv: v.number(), posts: v.number(), lives: v.number(), orders: v.number() }),
-      sevenDay: v.object({ gmv: v.number(), posts: v.number(), lives: v.number(), orders: v.number() }),
+    // Social account handles for each platform
+    socialAccounts: v.optional(v.object({
+      tiktok: v.optional(v.string()),
+      instagram: v.optional(v.string()),
+      youtube: v.optional(v.string()),
+      facebook: v.optional(v.string()),
+      twitch: v.optional(v.string()),
     })),
     profile: v.optional(v.object({
       realName: v.optional(v.string()),
@@ -33,28 +37,27 @@ export default defineSchema({
     })),
   }).index("by_discord", ["discordHandle"]),
 
-  social_accounts: defineTable({
-    creatorId: v.id("creators"),
-    platform: v.union(v.literal("TikTok"), v.literal("Instagram"), v.literal("YouTube"), v.literal("Facebook"), v.literal("Twitch")),
-    handle: v.string(),
-    url: v.string(),
-  }).index("by_creator", ["creatorId"]),
-
   videos: defineTable({
     creatorId: v.id("creators"),
     platform: v.union(v.literal("TikTok"), v.literal("Instagram"), v.literal("YouTube"), v.literal("Facebook")),
-    externalId: v.string(), // ID from the platform
-    thumbnailUrl: v.optional(v.string()),
+    externalId: v.string(),
     title: v.string(),
+    contentUrl: v.string(),
+    thumbnailUrl: v.optional(v.string()),
     views: v.number(),
+    likes: v.optional(v.number()),
+    shares: v.optional(v.number()),
+    comments: v.optional(v.number()),
     revenue: v.optional(v.number()),
-    status: v.union(v.literal("raw"), v.literal("processing"), v.literal("done")),
-    metadata: v.optional(v.any()),
+    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected"), v.literal("published")),
     recordedAt: v.string(),
     statsRefreshedAt: v.optional(v.string()),
+    approvedAt: v.optional(v.string()),
+    approvedBy: v.optional(v.string()),
   })
     .index("by_creator", ["creatorId"])
-    .index("by_platform", ["platform"]),
+    .index("by_platform", ["platform"])
+    .index("by_status", ["status"]),
 
   activities: defineTable({
     creatorId: v.id("creators"),
@@ -66,34 +69,11 @@ export default defineSchema({
     impact: v.optional(v.union(v.literal("high"), v.literal("medium"), v.literal("low"))),
   }).index("by_creator", ["creatorId"]),
 
-  discord_events: defineTable({
-    type: v.string(), // e.g., "join", "leave", "message"
-    discordUserId: v.string(),
-    payload: v.any(),
-    timestamp: v.string(),
-  }).index("by_type", ["type"]),
-
-  submissions: defineTable({
-    creatorId: v.id("creators"),
-    platform: v.union(v.literal("TikTok"), v.literal("Instagram"), v.literal("YouTube"), v.literal("Facebook")),
-    contentUrl: v.string(),
-    campaign: v.optional(v.string()),
-    affiliateLink: v.optional(v.string()),
-    notes: v.optional(v.string()),
-    status: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
-    reviewNote: v.optional(v.string()),
-    reviewedBy: v.optional(v.string()),
-    submittedAt: v.string(),
-    contentTags: v.optional(v.array(v.string())),
-    discordUserId: v.optional(v.string()),
-  })
-    .index("by_creator", ["creatorId"])
-    .index("by_status", ["status"]),
-
   payouts: defineTable({
     creatorId: v.id("creators"),
     amount: v.number(),
     period: v.string(), // "YYYY-MM"
+    calculatedFrom: v.optional(v.array(v.id("videos"))), // video IDs used to calculate this payout
     status: v.union(v.literal("pending"), v.literal("approved"), v.literal("paid"), v.literal("denied")),
     notes: v.optional(v.string()),
     createdAt: v.string(),
@@ -102,4 +82,15 @@ export default defineSchema({
   })
     .index("by_creator", ["creatorId"])
     .index("by_status", ["status"]),
+
+  // Google Sheets sync tracking
+  sheetsSync: defineTable({
+    creatorId: v.optional(v.id("creators")), // null = full database sync
+    lastSyncAt: v.string(),
+    sheetName: v.string(),
+    sheetUrl: v.optional(v.string()),
+    rowsCount: v.number(),
+    status: v.union(v.literal("success"), v.literal("error")),
+    errorMessage: v.optional(v.string()),
+  }).index("by_creator", ["creatorId"]),
 });
