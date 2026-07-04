@@ -38,6 +38,8 @@ export const list = query({
       managerId: creator.managerId,
       joinedAt: creator.joinedAt,
       metrics: creator.metrics ?? DEFAULT_METRICS,
+      postingFrequency: creator.profile?.postingFrequency,
+      postingFrequencyUpdatedAt: (creator.profile as any)?.postingFrequencyUpdatedAt,
       accounts: (accountsByCreator.get(creator._id as string) ?? []).map((a) => ({
         platform: a.platform,
         handle: a.handle,
@@ -71,6 +73,8 @@ export const getById = query({
       managerId: creator.managerId,
       joinedAt: creator.joinedAt,
       metrics: creator.metrics ?? DEFAULT_METRICS,
+      postingFrequency: creator.profile?.postingFrequency,
+      postingFrequencyUpdatedAt: (creator.profile as any)?.postingFrequencyUpdatedAt,
       accounts: accounts.map((a) => ({
         platform: a.platform,
         handle: a.handle,
@@ -118,6 +122,7 @@ export const update = mutation({
     commissionRate: v.optional(v.number()),
     managerId: v.optional(v.string()),
     metrics: v.optional(metricsValidator),
+    postingFrequency: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -130,10 +135,24 @@ export const update = mutation({
     if (!user || (user.role !== "admin" && user.role !== "manager"))
       throw new Error("Unauthorized");
 
-    const { id, ...updates } = args;
-    const patch = Object.fromEntries(
-      Object.entries(updates).filter(([, val]) => val !== undefined)
+    const { id, postingFrequency, ...rest } = args;
+
+    // Build top-level field patch
+    const patch: Record<string, unknown> = Object.fromEntries(
+      Object.entries(rest).filter(([, val]) => val !== undefined)
     );
+
+    // Merge postingFrequency into the profile sub-object
+    if (postingFrequency !== undefined) {
+      const existing = await ctx.db.get(id);
+      const existingProfile = (existing?.profile ?? {}) as Record<string, unknown>;
+      patch.profile = {
+        ...existingProfile,
+        postingFrequency,
+        postingFrequencyUpdatedAt: new Date().toISOString(),
+      };
+    }
+
     await ctx.db.patch(id, patch);
   },
 });

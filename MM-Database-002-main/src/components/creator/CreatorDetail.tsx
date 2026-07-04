@@ -24,6 +24,14 @@ interface CreatorDetailProps {
 
 const TIERS: Tier[] = ['Bronze', 'Silver', 'Gold', 'Platinum'];
 const PLATFORMS = ['TikTok', 'Instagram', 'YouTube', 'Facebook', 'Twitch'] as const;
+const POSTING_FREQUENCY_OPTIONS = [
+  'Daily',
+  '5–6x / week',
+  '3–4x / week',
+  '1–2x / week',
+  '2–3x / month',
+  'Less than monthly',
+] as const;
 
 type MetricsState = {
   mtd: { gmv: number; posts: number; lives: number; orders: number };
@@ -45,6 +53,7 @@ export function CreatorDetail({ creator, activities, userRole, onClose, onAddAct
   const [editCommission, setEditCommission] = useState(String(creator.commissionRate));
   const [editActive, setEditActive] = useState(creator.isActive);
   const [editMetrics, setEditMetrics] = useState<MetricsState>(creator.metrics);
+  const [editPostingFrequency, setEditPostingFrequency] = useState(creator.postingFrequency ?? '');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -85,6 +94,7 @@ export function CreatorDetail({ creator, activities, userRole, onClose, onAddAct
         commissionRate: parseFloat(editCommission) || creator.commissionRate,
         isActive: editActive,
         metrics: editMetrics,
+        postingFrequency: editPostingFrequency || undefined,
       });
       setIsEditing(false);
     } catch (err) {
@@ -99,6 +109,7 @@ export function CreatorDetail({ creator, activities, userRole, onClose, onAddAct
     setEditCommission(String(creator.commissionRate));
     setEditActive(creator.isActive);
     setEditMetrics(creator.metrics);
+    setEditPostingFrequency(creator.postingFrequency ?? '');
     setEditError(null);
     setIsEditing(false);
   }
@@ -273,19 +284,36 @@ export function CreatorDetail({ creator, activities, userRole, onClose, onAddAct
 
           {/* Metrics — read view */}
           {!isEditing && (
-            <div className="grid grid-cols-4 gap-3 mt-8">
-              {[
-                { label: 'GMV MTD', value: `$${creator.metrics.mtd.gmv.toLocaleString()}` },
-                { label: 'Posts 7D', value: creator.metrics.sevenDay.posts },
-                { label: 'Orders MTD', value: creator.metrics.mtd.orders.toLocaleString() },
-                { label: 'Comm. Rate', value: `${creator.commissionRate}%` },
-              ].map((m) => (
-                <div key={m.label} className="p-4 bg-zinc-950/50 border border-zinc-800 rounded-2xl">
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">{m.label}</p>
-                  <p className="text-xl font-bold font-mono text-zinc-100">{m.value}</p>
+            <>
+              <div className="grid grid-cols-4 gap-3 mt-8">
+                {[
+                  { label: 'GMV MTD', value: `$${creator.metrics.mtd.gmv.toLocaleString()}` },
+                  { label: 'Posts 7D', value: creator.metrics.sevenDay.posts },
+                  { label: 'Orders MTD', value: creator.metrics.mtd.orders.toLocaleString() },
+                  { label: 'Comm. Rate', value: `${creator.commissionRate}%` },
+                ].map((m) => (
+                  <div key={m.label} className="p-4 bg-zinc-950/50 border border-zinc-800 rounded-2xl">
+                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">{m.label}</p>
+                    <p className="text-xl font-bold font-mono text-zinc-100">{m.value}</p>
+                  </div>
+                ))}
+              </div>
+              {/* Posting Frequency — read mode */}
+              <div className="mt-4 p-4 bg-zinc-950/50 border border-zinc-800 rounded-2xl flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Posting Frequency</p>
+                  <p className="text-sm font-bold text-zinc-100">
+                    {creator.postingFrequency ?? <span className="text-zinc-600 font-medium italic">Not set</span>}
+                  </p>
                 </div>
-              ))}
-            </div>
+                {creator.postingFrequencyUpdatedAt && (
+                  <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest text-right">
+                    Updated<br />
+                    {new Date(creator.postingFrequencyUpdatedAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            </>
           )}
 
           {/* Metrics editor — shown when editing */}
@@ -327,6 +355,19 @@ export function CreatorDetail({ creator, activities, userRole, onClose, onAddAct
                     onChange={(e) => setEditCommission(e.target.value)}
                     className="w-28 h-9 px-3 bg-zinc-900 border border-zinc-700 rounded-lg text-sm font-bold text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Posting Frequency</label>
+                  <select
+                    value={editPostingFrequency}
+                    onChange={(e) => setEditPostingFrequency(e.target.value)}
+                    className="h-9 px-3 bg-zinc-900 border border-zinc-700 rounded-lg text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 appearance-none cursor-pointer"
+                  >
+                    <option value="">— Not set —</option>
+                    {POSTING_FREQUENCY_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center gap-3 mt-4">
                   <button
@@ -462,6 +503,8 @@ export function CreatorDetail({ creator, activities, userRole, onClose, onAddAct
               <a
                 key={idx}
                 href={acc.url}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl hover:bg-zinc-800 hover:border-zinc-700 transition-all group flex items-center justify-between"
               >
                 <div className="flex items-center gap-4">

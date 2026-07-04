@@ -32,6 +32,8 @@ export interface Creator {
     sevenDay: MetricRollup;
   };
   managerId?: string;
+  postingFrequency?: string;
+  postingFrequencyUpdatedAt?: string;
 }
 
 export type ActivityType = 'win' | 'loss' | 'observation' | 'adjustment';
