@@ -22,6 +22,7 @@ import { SubmissionsView } from './components/dashboard/SubmissionsView';
 import { LeaderboardView } from './components/dashboard/LeaderboardView';
 import { PayoutsView } from './components/dashboard/PayoutsView';
 import { ImportView } from './components/dashboard/ImportView';
+import { StatsImportView } from './components/dashboard/StatsImportView';
 import { ActivityType } from './types';
 import { AnimatePresence, motion } from 'motion/react';
 import { Plus, X, AlertCircle, CheckCircle, UserPlus, Menu } from 'lucide-react';
@@ -233,6 +234,7 @@ function AuthenticatedApp() {
                activeView === 'submissions' ? 'Submissions' :
                activeView === 'leaderboard' ? 'Leaderboard' :
                activeView === 'payouts' ? 'Payouts' :
+               activeView === 'import-stats' ? 'Import Creator Stats' :
                activeView.charAt(0).toUpperCase() + activeView.slice(1)}
             </h1>
             <p className="text-zinc-500 mt-1 font-medium text-sm">
@@ -241,6 +243,7 @@ function AuthenticatedApp() {
                activeView === 'submissions' ? 'Review and tag incoming creator content submissions.' :
                activeView === 'leaderboard' ? 'Ranked creator performance by GMV, posts, and orders.' :
                activeView === 'payouts' ? 'Track and manage creator payout lifecycle.' :
+               activeView === 'import-stats' ? 'Bulk update GMV, posts, lives, and orders from Excel/CSV.' :
                'Analyzing aggregate team performance and tier metrics.'}
             </p>
             </div>
@@ -262,7 +265,7 @@ function AuthenticatedApp() {
             </div>
           </div>
         </header>
-
+ 
         {/* Loading skeleton for database view */}
         {activeView === 'database' && isLoading && (
           <div className="space-y-4">
@@ -274,7 +277,7 @@ function AuthenticatedApp() {
             <div className="h-96 bg-zinc-900/40 border border-zinc-800 rounded-2xl animate-pulse" />
           </div>
         )}
-
+ 
         {activeView === 'database' && !isLoading && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
             <StatCards creators={creators} />
@@ -285,28 +288,29 @@ function AuthenticatedApp() {
             />
           </motion.div>
         )}
-
+ 
         {activeView === 'timeline' && (
           <TimelineView
-            activities={activities}
-            creators={creators}
-            users={usersData ?? []}
-            userRole={userRole}
-            onSelectCreator={(id) => setSelectedCreatorId(id)}
-          />
-        )}
-
-        {activeView === 'reports' && <ReportsView creators={creators} />}
-        {activeView === 'settings' && <SettingsView />}
-        {activeView === 'videos' && <VideosView userRole={userRole} creators={creators} />}
-        {activeView === 'discord' && <DiscordTrackingView creators={creators} userRole={userRole} />}
-        {activeView === 'youtube' && <YouTubeView userRole={userRole} creators={creators} />}
-        {activeView === 'submissions' && <SubmissionsView userRole={userRole} creators={creators} />}
-        {activeView === 'leaderboard' && <LeaderboardView userRole={userRole} />}
-        {activeView === 'payouts' && <PayoutsView userRole={userRole} creators={creators} />}
-        {activeView === 'import' && <ImportView />}
-
-        {activeView !== 'database' && activeView !== 'timeline' && activeView !== 'reports' && activeView !== 'settings' && activeView !== 'videos' && activeView !== 'discord' && activeView !== 'youtube' && activeView !== 'submissions' && activeView !== 'leaderboard' && activeView !== 'payouts' && activeView !== 'import' && (
+              activities={activities}
+              creators={creators}
+              users={usersData ?? []}
+              userRole={userRole}
+              onSelectCreator={(id) => setSelectedCreatorId(id)}
+            />
+          )}
+  
+          {activeView === 'reports' && <ReportsView creators={creators} />}
+          {activeView === 'settings' && <SettingsView />}
+          {activeView === 'videos' && <VideosView userRole={userRole} creators={creators} />}
+          {activeView === 'discord' && <DiscordTrackingView creators={creators} userRole={userRole} />}
+          {activeView === 'youtube' && <YouTubeView userRole={userRole} creators={creators} />}
+          {activeView === 'submissions' && <SubmissionsView userRole={userRole} creators={creators} />}
+          {activeView === 'leaderboard' && <LeaderboardView userRole={userRole} />}
+          {activeView === 'payouts' && <PayoutsView userRole={userRole} creators={creators} />}
+          {activeView === 'import' && <ImportView />}
+          {activeView === 'import-stats' && <StatsImportView />}
+  
+          {activeView !== 'database' && activeView !== 'timeline' && activeView !== 'reports' && activeView !== 'settings' && activeView !== 'videos' && activeView !== 'discord' && activeView !== 'youtube' && activeView !== 'submissions' && activeView !== 'leaderboard' && activeView !== 'payouts' && activeView !== 'import' && activeView !== 'import-stats' && (
           <div className="flex flex-col items-center justify-center h-[60vh] text-center">
             <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center text-black mb-6 font-bold text-2xl">M</div>
             <h2 className="text-2xl font-bold text-zinc-100 italic font-serif tracking-tight">Module Under Development</h2>

@@ -343,3 +343,48 @@ export const seed = mutation({
     }
   },
 });
+
+export const bulkUpdateStats = mutation({
+  args: {
+    updates: v.array(v.object({
+      discordHandle: v.string(),
+      metrics: metricsValidator,
+    })),
+  },
+  handler: async (ctx, { updates }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user || (user.role !== "admin" && user.role !== "manager"))
+      throw new Error("Unauthorized: admin or manager required");
+
+    let updated = 0;
+    let notFound = 0;
+
+    // Fetch all creators once to optimize performance and handle case-insensitive matching
+    const creators = await ctx.db.query("creators").collect();
+    const creatorMap = new Map<string, typeof creators[number]>();
+    for (const c of creators) {
+      creatorMap.set(c.discordHandle.toLowerCase(), c);
+    }
+
+    for (const update of updates) {
+      const matched = creatorMap.get(update.discordHandle.toLowerCase());
+      if (matched) {
+        await ctx.db.patch(matched._id, {
+          metrics: update.metrics,
+        });
+        updated++;
+      } else {
+        notFound++;
+      }
+    }
+
+    return { updated, notFound };
+  },
+});
+

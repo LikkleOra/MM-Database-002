@@ -95,6 +95,17 @@ export function Sidebar({ activeView, onViewChange, isOpen, onClose }: SidebarPr
           Import Creators
         </button>
         <button
+          onClick={() => handleNav('import-stats')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+            activeView === 'import-stats'
+              ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+              : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 shrink-0" />
+          Import Stats
+        </button>
+        <button
           onClick={() => handleNav('settings')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
             activeView === 'settings'
